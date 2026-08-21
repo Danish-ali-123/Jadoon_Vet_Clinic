@@ -1,0 +1,20 @@
+﻿field,purpose
+record_id,Stable unique ID for joins and traceability
+species_group,Livestock or Companion Animal
+species,"Cattle, Dog, Cat, or Dog; Cat"
+category,Disease category/system label
+disease,Canonical disease name / target label
+aliases,Abbreviations and alternate names
+cause,Etiology / causative agent
+signs,Pipe-separated clinical signs; split on ' | ' for multi-label features
+diagnosis,Pipe-separated diagnostic tests/methods
+treatment_raw,Normalized educational treatment text; must be veterinarian-validated before clinical deployment
+prevention,Preventive measures / vaccination / husbandry
+red_flags,Urgent findings for triage routing
+zoonotic,Zoonotic risk field
+emergency,Emergency triage label
+clinical_review_status,Validation status
+clinical_review_notes,"Known ambiguity, safety, evidence or regulatory caveat"
+source_type,Data provenance
+model_input_text,Example NLP input string
+model_target_text,Example structured target answer
