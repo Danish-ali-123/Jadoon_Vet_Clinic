@@ -1,6 +1,6 @@
 # Vet Case Assistant
 
-A zero-budget friendly Streamlit prototype for veterinary decision support. The app collects animal description, symptoms, history, vitals, and exam notes, then suggests:
+A Streamlit decision-support app for veterinary case triage. The app collects animal description, history, clinical signs, vitals, and exam notes, then suggests:
 
 - urgency level and red flags
 - likely differential diagnoses
@@ -8,7 +8,7 @@ A zero-budget friendly Streamlit prototype for veterinary decision support. The 
 - treatment principles for veterinarian review
 - a copyable case summary
 - optional open-source semantic matching with `sentence-transformers/all-MiniLM-L6-v2`
-- optional AI assessment when `OPENAI_API_KEY` is configured
+- optional external LLM help through free-tier provider keys
 
 ## Important clinical note
 
@@ -23,44 +23,43 @@ streamlit run app.py
 
 ## Model approach
 
-The app works without any OpenAI key. It uses:
+The app works without any paid API key. It uses:
 
 - the veterinarian-review-pending CSV knowledge base in `Raw Data/`
 - `sentence-transformers/all-MiniLM-L6-v2` for lightweight open-source semantic matching
 - automatic keyword fallback if the pretrained model cannot load
-
-This is safer and cheaper than trying to run a large LLM on free hosting.
+- optional Groq or Hugging Face LLM calls when free-tier tokens are configured
 
 Current dataset coverage is strongest for cattle, dogs, and cats. The form includes other species so the workflow is ready, but more vet-reviewed rows should be added before those species are treated as covered.
 
-## Optional OpenAI setup
+## Optional free-tier LLM setup
 
-The app works without an API key. This step is only for extra paid LLM-style text output.
+The app does not require OpenAI. For optional LLM reasoning, add one or both secrets in Streamlit Cloud:
 
-To enable AI output:
+```toml
+GROQ_API_KEY = "your_groq_key"
+GROQ_MODEL = "groq/compound-mini"
 
-```bash
-set OPENAI_API_KEY=your_api_key_here
-set OPENAI_MODEL=gpt-5-mini
-streamlit run app.py
+HF_TOKEN = "your_huggingface_token"
+HF_MODEL = "deepseek-ai/DeepSeek-R1:fastest"
 ```
 
-On macOS/Linux, use `export` instead of `set`.
+Free tiers are rate-limited and can change. The safest default is still the local knowledge-base matcher, with any LLM output treated as draft support for a veterinarian.
 
-## Free deployment path
+## Streamlit Cloud deployment
 
-GitHub Pages is for static HTML/CSS/JavaScript sites, so it will not run this Python app. For a Python front end, use Streamlit Community Cloud:
-
-1. Create a GitHub repository.
-2. Upload `app.py`, `vet_ai.py`, `data_kb.py`, `knowledge_base.py`, `requirements.txt`, `README.md`, and the `Raw Data/` folder.
-3. Go to Streamlit Community Cloud and create a new app from the repo.
-4. Main file path: `app.py`.
-5. Add `OPENAI_API_KEY` in Streamlit secrets only if you want paid AI output. It is not required.
+1. Push this repository to GitHub.
+2. In Streamlit Cloud, create or manage the app.
+3. Repository: `Danish-ali-123/Jadoon_Vet_Clinic`.
+4. Branch: `main`.
+5. Main file path: `app.py`.
+6. Add optional secrets only if you want external LLM output.
+7. Deploy or reboot the app.
 
 ## Best next improvements
 
-- Add a vet-approved dataset of local diseases, medicines, and farm/pet workflows.
+- Add more vet-approved rows for goat, sheep, poultry, buffalo, horse, camel, and rabbit.
 - Add role-based login before storing real patient/client data.
 - Add PDF case report export.
-- Add a retrieval layer over curated veterinary references instead of scraping random internet pages.
-- Add validation by the veterinarian before sharing with clients.
+- Add curated veterinary references for retrieval instead of relying on general web search.
+- Add formal validation by the veterinarian before sharing with clients.

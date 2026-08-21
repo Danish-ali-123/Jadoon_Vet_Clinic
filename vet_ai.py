@@ -234,3 +234,4 @@ Return:
         return response.output_text
     except Exception as exc:  # pragma: no cover - depends on external API.
         return f"AI assessment failed: {exc}"
+
