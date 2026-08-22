@@ -223,7 +223,7 @@ def build_case_text(case: dict) -> str:
     return ". ".join(part for part in parts if part.strip())
 
 
-def match_diseases(case: dict, limit: int = 5) -> tuple[list[dict], str]:
+def match_diseases(case: dict, limit: int = 2) -> tuple[list[dict], str]:
     rows = load_disease_rows()
     case_text = build_case_text(case)
     semantic = semantic_scores(case_text) if case.get("use_pretrained_model") else None
@@ -271,3 +271,4 @@ def match_diseases(case: dict, limit: int = 5) -> tuple[list[dict], str]:
             }
         )
     return matches, method
+
