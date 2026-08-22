@@ -195,7 +195,7 @@ def main() -> None:
           <div class="metric-card"><div class="metric-label">Saved Cases</div><div class="metric-value">{len(records)}</div></div>
           <div class="metric-card"><div class="metric-label">Emergencies</div><div class="metric-value">{emergencies}</div></div>
           <div class="metric-card"><div class="metric-label">Latest Ref</div><div class="metric-value">{latest.get('case_ref', 'None')}</div></div>
-          <div class="metric-card"><div class="metric-label">Storage</div><div class="metric-value">JSONL</div></div>
+          <div class="metric-card"><div class="metric-label">Storage</div><div class="metric-value">Cloud Ready</div></div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -255,3 +255,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
