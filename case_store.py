@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from google_sheets_store import append_record, is_google_sheets_configured, read_records
+
 
 _HISTORY_LOCK = threading.Lock()
 DEFAULT_HISTORY_PATH = Path(__file__).parent / "case_history.jsonl"
@@ -23,7 +25,7 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def read_cases() -> list[dict[str, Any]]:
+def read_local_cases() -> list[dict[str, Any]]:
     path = history_path()
     if not path.exists():
         return []
@@ -39,6 +41,33 @@ def read_cases() -> list[dict[str, Any]]:
             except json.JSONDecodeError:
                 continue
     return records
+
+
+def merge_records(primary: list[dict[str, Any]], secondary: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    merged: dict[str, dict[str, Any]] = {}
+    for record in secondary + primary:
+        ref = str(record.get("case_ref", ""))
+        if ref:
+            merged[ref] = record
+    return list(merged.values())
+
+
+def read_cases() -> list[dict[str, Any]]:
+    local_records = read_local_cases()
+    if not is_google_sheets_configured():
+        return local_records
+
+    sheet_records, _status = read_records()
+    if not sheet_records:
+        return local_records
+    return merge_records(sheet_records, local_records)
+
+
+def case_storage_source() -> str:
+    if not is_google_sheets_configured():
+        return f"Local JSONL only: {history_path()}"
+    _records, status = read_records()
+    return status
 
 
 def list_cases(limit: int = 250) -> list[dict[str, Any]]:
@@ -78,6 +107,7 @@ def compact_result(result: dict[str, Any]) -> dict[str, Any]:
         "matches": result.get("matches", [])[:2],
         "diagnostics": result.get("diagnostics", []),
         "treatment_principles": result.get("treatment_principles", []),
+        "medication_support": result.get("medication_support", []),
         "immediate_actions": result.get("immediate_actions", []),
     }
 
@@ -105,4 +135,10 @@ def save_case(case: dict[str, Any], result: dict[str, Any]) -> dict[str, str]:
         }
         with path.open("a", encoding="utf-8") as file:
             file.write(json.dumps(record, ensure_ascii=False) + "\n")
-    return {"case_ref": case_ref, "saved_at": saved_at}
+
+        if is_google_sheets_configured():
+            sheet_status = append_record(record)
+            storage_status = f"Saved locally and Google Sheets: {sheet_status}"
+        else:
+            storage_status = "Saved to local case history; Google Sheets not configured"
+    return {"case_ref": case_ref, "saved_at": saved_at, "storage_status": storage_status}
