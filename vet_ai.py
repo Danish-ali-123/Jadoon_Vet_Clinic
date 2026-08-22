@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import os
 from collections import OrderedDict
 from typing import Iterable
 
+from case_store import save_case
 from data_kb import match_diseases
 from knowledge_base import CONDITION_RULES, DEFAULT_DIAGNOSTICS, DEFAULT_TREATMENT_PRINCIPLES
 
@@ -142,7 +142,7 @@ def analyze_case(case: dict) -> dict:
     if red_flags:
         immediate_actions.insert(0, "Stabilize patient and arrange immediate veterinary examination.")
 
-    return {
+    result = {
         "urgency": determine_urgency(matches, red_flags),
         "model_method": model_method,
         "red_flags": red_flags,
@@ -151,12 +151,22 @@ def analyze_case(case: dict) -> dict:
         "treatment_principles": unique(treatment_principles or DEFAULT_TREATMENT_PRINCIPLES),
         "immediate_actions": unique(immediate_actions or ["Collect complete history, vitals, and physical exam findings."]),
     }
+    try:
+        storage_meta = save_case(case, result)
+        result.update(storage_meta)
+        result["storage_status"] = "Saved to local case history"
+    except Exception as exc:
+        result["case_ref"] = "Not saved"
+        result["storage_status"] = f"Case history save failed: {exc}"
+    return result
 
 
 def build_case_summary(case: dict, result: dict) -> str:
     differentials = ", ".join(match["condition"] for match in result["matches"]) or "No strong match"
     return f"""# Vet Case Summary
 
+Case reference: {result.get("case_ref", "Not saved")}
+Saved at: {result.get("saved_at", "Not saved")}
 Date: {case.get("visit_date")}
 Species: {case.get("species")}
 Further type: {case.get("animal_subtype") or "Not provided"}
