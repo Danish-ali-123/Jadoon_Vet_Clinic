@@ -143,6 +143,24 @@ def deterministic_assessment(case: dict, result: dict, _status: str = "") -> str
     return "\n".join(lines)
 
 
+def is_usable_generated_text(text: str) -> bool:
+    lowered = text.lower().strip()
+    if len(lowered) < 120:
+        return False
+    bad_fragments = [
+        "guidelines",
+        "what is the most likely diagnosis",
+        "patient's symptoms?",
+        "unknown task",
+        "could not load",
+        "traceback",
+    ]
+    if any(fragment in lowered for fragment in bad_fragments):
+        return False
+    required = ["most likely", "diagnostics", "treatment", "medication"]
+    return sum(1 for term in required if term in lowered) >= 3
+
+
 def clean_generated_text(text: str) -> str:
     text = text.strip()
     marker = "Recommendation only"
