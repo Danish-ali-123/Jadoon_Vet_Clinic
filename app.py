@@ -643,79 +643,116 @@ def workflow_card(title: str, items: list[str]) -> None:
 
 
 
-def render_local_assessment_plan(result: dict) -> None:
-    matches = result.get("matches", [])[:2]
-    if not matches:
-        workflow_card("Diagnosis and treatment plan", ["No confident local match was found. Add more history, vitals, exam findings, and diagnostics."])
-        return
-
-    primary = matches[0]
-    secondary = matches[1] if len(matches) > 1 else None
-    diagnosis_items = [
-        f"Primary candidate: {primary.get('condition', 'Unknown')} ({primary.get('score', 0)}% match).",
-    ]
-    if secondary:
-        diagnosis_items.append(f"Second candidate to rule out: {secondary.get('condition', 'Unknown')} ({secondary.get('score', 0)}% match).")
-    diagnosis_items.append("Treat this as decision support for the veterinarian, not an automatic final diagnosis.")
-
-    diagnostics = result.get("diagnostics", [])[:6]
-    treatment = result.get("treatment_principles", [])[:6]
-    safety = result.get("immediate_actions", [])[:5]
-
-    st.markdown('<div class="panel">', unsafe_allow_html=True)
-    panel_heading("clinical", "Diagnosis and treatment plan", "Local no-key assessment from top 2 pretrained/knowledge-base matches.")
-    col_a, col_b = st.columns([1, 1])
-    with col_a:
-        workflow_card("Most likely diagnosis candidates", diagnosis_items)
-        workflow_card("Diagnostics to confirm", diagnostics)
-    with col_b:
-        workflow_card("Treatment plan for vet review", treatment)
-        workflow_card("Immediate safety actions", safety)
-    st.markdown('</div>', unsafe_allow_html=True)
+def first_or_none(items: list[dict], index: int) -> dict | None:
+    return items[index] if len(items) > index else None
 
 
-def render_medication_support(result: dict) -> None:
-    support = result.get("medication_support", [])
-    if not support:
-        return
+def compact_items(items: list[str], limit: int = 4) -> list[str]:
+    return [item for item in items if item][:limit]
 
-    st.markdown('<div class="panel">', unsafe_allow_html=True)
-    panel_heading("shield", "Vet medication recommendations", "Recommendation only. Vet Doc must make the final prescribing decision after exam, diagnostics, weight check, and local drug rules.")
-    st.warning("Recommendation only - the veterinarian must make the final decision. Exact dose, route, interval, duration, and withdrawal period must be confirmed by the vet before use.")
-    for item in support[:2]:
-        options = []
-        for option in item.get("medication_options", []):
-            options.extend(
-                [
-                    f"Medicine name: {option.get('medication_name', option.get('example_from_knowledge_base', 'Vet-selected medicine'))}",
-                    f"Antibiotic/class: {option.get('class_or_category', 'Vet-selected class')}",
-                    f"Medicine type: {option.get('medication_type', 'Medication')}",
-                    f"Dosage limit: {option.get('dosage_limit', 'Vet must calculate and confirm')}",
-                    f"Route: {option.get('route', 'Vet to confirm')}",
-                    f"Frequency: {option.get('frequency', 'Vet to confirm')}",
-                    f"Duration: {option.get('duration', 'Vet to confirm')}",
-                    f"Withdrawal period: {option.get('withdrawal_period', 'Vet to confirm if relevant')}",
-                    f"Status: {option.get('dose_status', 'Vet confirmation required')}",
-                ]
+
+def medication_table_rows(case: dict, result: dict) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    species = case.get("species") or "Not provided"
+    for support in result.get("medication_support", [])[:2]:
+        condition = support.get("condition", "Unknown")
+        for option in support.get("medication_options", []):
+            rows.append(
+                {
+                    "Medication Category": option.get("medication_type", "Medication"),
+                    "Drug Class": option.get("class_or_category", "Vet-selected class"),
+                    "Generic Drug": option.get("medication_name", option.get("example_from_knowledge_base", "Vet-selected medicine")),
+                    "Species": species,
+                    "Common Indication": condition,
+                    "Route": option.get("route", "Vet to confirm"),
+                    "Dose Range": option.get("dosage_limit", "Vet to confirm"),
+                    "Frequency": option.get("frequency", "Vet to confirm"),
+                    "Contraindications": "Check pregnancy/lactation, hydration, organ status, allergies, interactions, diagnosis confidence.",
+                    "Withdrawal Period": option.get("withdrawal_period", "Vet to confirm if relevant"),
+                    "Prescription Required": "Yes - veterinarian decision required",
+                    "Vet Validation Status": option.get("dose_status", "Vet confirmation required"),
+                }
             )
-        if not options:
-            options = ["No medication class found in the knowledge base for this condition. Vet should select based on exam and diagnostics."]
-        notes = item.get("safety_notes", []) + [item.get("vet_protocol_needed", "Vet protocol required.")]
-        col_a, col_b = st.columns([1, 1])
-        with col_a:
-            workflow_card(f"Medication recommendation: {item.get('condition', 'Unknown')}", options)
-        with col_b:
-            workflow_card("Prescription safety checks", notes)
-    st.markdown('</div>', unsafe_allow_html=True)
+    return rows
 
-def render_llm_assessment(case: dict, result: dict) -> None:
+
+def render_ai_summary(case: dict, result: dict) -> None:
+    with st.spinner("Preparing AI clinical summary..."):
+        assessment, _status = generate_local_llm_assessment(case, result)
     st.markdown('<div class="panel">', unsafe_allow_html=True)
-    panel_heading("brain", "Local LLM assistant", "No API key or token. Runs a public Hugging Face model locally when available.")
-    with st.spinner("Generating local LLM assessment..."):
-        assessment, status = generate_local_llm_assessment(case, result)
-    st.caption(status)
+    panel_heading("brain", "AI clinical summary", "Short recommendation for veterinarian review.")
     st.markdown(assessment)
     st.markdown('</div>', unsafe_allow_html=True)
+
+
+def render_simple_output(case: dict, result: dict) -> None:
+    matches = result.get("matches", [])[:2]
+    primary = first_or_none(matches, 0)
+    secondary = first_or_none(matches, 1)
+    st.warning("Recommendation only. Vet Doc Hammad Jadoon must make the final diagnosis, medication choice, dose, duration, and treatment decision.")
+
+    if not primary:
+        st.error("No confident disease match found. Add more symptoms, exam findings, vitals, and diagnostic results.")
+        return
+
+    st.markdown('<div class="panel">', unsafe_allow_html=True)
+    panel_heading("clinical", "Main result", "Focused diagnosis and action plan.")
+    col_a, col_b, col_c = st.columns([1.1, 1, 1])
+    with col_a:
+        workflow_card(
+            "Most likely disease",
+            [
+                f"{primary.get('condition', 'Unknown')} ({primary.get('score', 0)}% match)",
+                f"Cause: {primary.get('cause') or 'Needs veterinarian confirmation'}",
+            ],
+        )
+    with col_b:
+        workflow_card(
+            "Second disease to rule out",
+            [
+                f"{secondary.get('condition', 'None')} ({secondary.get('score', 0)}% match)" if secondary else "No second strong match",
+                "Use diagnostics and physical exam to confirm.",
+            ],
+        )
+    with col_c:
+        workflow_card(
+            "Urgency",
+            [
+                result.get("urgency", "Routine"),
+                ", ".join(compact_items(result.get("red_flags", []), 3)) or "No immediate red flag phrase detected",
+            ],
+        )
+
+    col_d, col_t = st.columns([1, 1])
+    with col_d:
+        workflow_card("Confirm with", compact_items(result.get("diagnostics", []), 5))
+    with col_t:
+        workflow_card("Suggested treatment plan", compact_items(result.get("treatment_principles", []), 5))
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+def render_medication_table(case: dict, result: dict) -> None:
+    rows = medication_table_rows(case, result)
+    if not rows:
+        return
+    st.markdown('<div class="panel">', unsafe_allow_html=True)
+    panel_heading("shield", "Medication recommendation table", "Recommendation only. Vet must confirm final prescription, dose, frequency, duration, and withdrawal period.")
+    st.dataframe(rows, hide_index=True, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+def render_detail_expanders(result: dict) -> None:
+    with st.expander("Detailed differential list"):
+        for match in result.get("matches", [])[:2]:
+            render_match_card(match)
+    with st.expander("Detailed workflow items"):
+        col_a, col_b, col_c = st.columns([1, 1, 1])
+        with col_a:
+            workflow_card("Immediate actions", result.get("immediate_actions", []))
+        with col_b:
+            workflow_card("Recommended diagnostics", result.get("diagnostics", []))
+        with col_c:
+            workflow_card("Treatment principles", result.get("treatment_principles", []))
 
 def render_results() -> None:
     render_topbar()
@@ -728,36 +765,18 @@ def render_results() -> None:
             st.rerun()
         return
 
-    screen_title("Assessment", "Clinical assessment dashboard", "Review urgency, red flags, differential matches, diagnostics, and treatment principles before final veterinarian decision-making.")
+    screen_title("Assessment", "Clear vet decision screen", "One focused diagnosis, one rule-out, one treatment plan, and one medication recommendation table.")
     urgency_color = URGENCY_COLORS.get(result["urgency"], "#344054")
     st.markdown(f"<span class='urgency-chip' style='background:{urgency_color}'>Urgency: {html.escape(result['urgency'])}</span>", unsafe_allow_html=True)
-    st.caption(f"Matching method: {result.get('model_method', 'Not provided')}")
-    st.info(f"Case reference: {result.get('case_ref', 'Not saved')} | {result.get('storage_status', 'History status unavailable')}")
-    render_metric_grid(result)
+    st.caption(f"Case reference: {result.get('case_ref', 'Not saved')} | {result.get('storage_status', 'History status unavailable')}")
 
-    if result["red_flags"]:
-        st.error("Red flags detected: " + ", ".join(result["red_flags"]))
-    else:
-        st.success("No immediate red-flag phrase was detected from the entered notes.")
-
-    render_local_assessment_plan(result)
-    render_medication_support(result)
-    render_llm_assessment(case, result)
-
-    left, right = st.columns([1.08, 1])
-    with left:
-        panel_heading("report", "Differential list", "Ranked disease candidates from the knowledge base.")
-        for match in result.get("matches", []):
-            render_match_card(match)
-    with right:
-        panel_heading("shield", "Vet workflow", "Actions, diagnostics, and treatment principles.")
-        workflow_card("Immediate actions", result["immediate_actions"])
-        workflow_card("Recommended diagnostics", result["diagnostics"])
-        workflow_card("Treatment principles", result["treatment_principles"])
+    render_ai_summary(case, result)
+    render_simple_output(case, result)
+    render_medication_table(case, result)
+    render_detail_expanders(result)
 
     with st.expander("Case summary for record or referral"):
         st.code(build_case_summary(case, result), language="markdown")
-
 
     nav1, nav2, nav3 = st.columns([1, 1, 2])
     with nav1:
@@ -770,7 +789,6 @@ def render_results() -> None:
             st.rerun()
     with nav3:
         st.page_link("pages/Case_History.py", label="Open Case History")
-
 
 def main() -> None:
     ensure_state()
