@@ -674,6 +674,29 @@ def render_local_assessment_plan(result: dict) -> None:
     st.markdown('</div>', unsafe_allow_html=True)
 
 
+def render_medication_support(result: dict) -> None:
+    support = result.get("medication_support", [])
+    if not support:
+        return
+
+    st.markdown('<div class="panel">', unsafe_allow_html=True)
+    panel_heading("shield", "Vet medication support", "Drug classes and medicine types for veterinarian prescription planning. Exact dose, route, interval, and duration must be confirmed by the vet.")
+    for item in support[:2]:
+        options = []
+        for option in item.get("medication_options", []):
+            options.append(
+                f"{option.get('medication_type', 'Medication')}: {option.get('class_or_category', 'Vet-selected class')} | Example: {option.get('example_from_knowledge_base', 'Not specified')} | {option.get('dose_status', 'Vet confirmation required')}"
+            )
+        if not options:
+            options = ["No medication class found in the knowledge base for this condition. Vet should select based on exam and diagnostics."]
+        notes = item.get("safety_notes", []) + [item.get("vet_protocol_needed", "Vet protocol required.")]
+        col_a, col_b = st.columns([1, 1])
+        with col_a:
+            workflow_card(f"Medication options: {item.get('condition', 'Unknown')}", options)
+        with col_b:
+            workflow_card("Prescription safety checks", notes)
+    st.markdown('</div>', unsafe_allow_html=True)
+
 def render_llm_assessment(case: dict, result: dict) -> None:
     st.markdown('<div class="panel">', unsafe_allow_html=True)
     panel_heading("brain", "Local LLM assistant", "No API key or token. Runs a public Hugging Face model locally when available.")
@@ -707,6 +730,7 @@ def render_results() -> None:
         st.success("No immediate red-flag phrase was detected from the entered notes.")
 
     render_local_assessment_plan(result)
+    render_medication_support(result)
     render_llm_assessment(case, result)
 
     left, right = st.columns([1.08, 1])
