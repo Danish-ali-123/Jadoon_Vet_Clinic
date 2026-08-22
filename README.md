@@ -7,7 +7,7 @@ A Streamlit decision-support app for veterinary case triage at Jadoon Vet Clinic
 - recommended confirmatory diagnostics
 - treatment plan principles for veterinarian review
 - a copyable case summary
-- automatic local case-history storage with searchable reference numbers
+- automatic case-history storage with searchable reference numbers and optional Google Sheets sync
 - open-source pretrained semantic matching with `sentence-transformers/all-MiniLM-L6-v2`
 - local no-key Hugging Face LLM assessment with `google/flan-t5-small` by default
 
@@ -39,9 +39,30 @@ Current dataset coverage is strongest for cattle, dogs, and cats. The form inclu
 
 ## Case history storage
 
-Each analyzed case is saved with a reference number like `JVC-20260822-0001` in `case_history.jsonl`. The app includes a Streamlit `Case History` page where the veterinarian can search by reference number, species, breed, condition, date, or symptoms, then download a case JSON or full history CSV/JSON.
+Each analyzed case is saved with a reference number like `JVC-20260822-0001`. By default it saves to `case_history.jsonl`. If Google Sheets secrets are configured, the same case is also appended to a Google Sheet. The app includes a Streamlit `Case History` page where the veterinarian can search by reference number, species, breed, condition, date, or symptoms, then download a case JSON or full history CSV/JSON.
 
-This is a no-key prototype storage method. On free Streamlit Cloud, local files can be lost after reboot, redeploy, or app migration. For permanent clinic records, use Google Sheets, Supabase, Firebase, Airtable, or GitHub-backed storage with a private secret.
+For permanent clinic records on Streamlit Cloud, Google Sheets is the recommended first backend because it is simple for the vet to open on any device. Firebase is better later for login, role permissions, real-time app dashboards, and larger production workflows.
+
+### Google Sheets setup
+
+1. Create a Google Cloud service account and enable Google Sheets API.
+2. Create a Google Sheet with a tab named `Cases`.
+3. Share the sheet with the service account email as Editor.
+4. In Streamlit Cloud, add secrets:
+
+```toml
+GOOGLE_SHEET_ID = "your_google_sheet_id"
+GOOGLE_SHEET_WORKSHEET = "Cases"
+GOOGLE_SERVICE_ACCOUNT_JSON = '''{"type":"service_account","project_id":"...","private_key_id":"...","private_key":"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n","client_email":"...","client_id":"...","token_uri":"https://oauth2.googleapis.com/token"}'''
+```
+
+The app still works without these secrets, but then history is only local JSONL and can be lost on Streamlit reboot.
+
+## Medication support policy
+
+The app can show medicine type, antibiotic class, and examples mentioned in the veterinarian knowledge base. It intentionally does not auto-generate exact dose, route, interval, or duration as a final prescription. Those details must be calculated and confirmed by the veterinarian using weight, species, pregnancy/lactation status, organ status, culture/sensitivity, local drug labels, and food-animal withdrawal rules.
+
+To display exact clinic-approved medication protocols safely, add a veterinarian-maintained medication protocol sheet later and require vet confirmation before showing or exporting dose instructions.
 ## Streamlit Cloud deployment
 
 1. Push this repository to GitHub.
