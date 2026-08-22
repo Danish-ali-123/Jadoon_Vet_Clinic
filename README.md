@@ -7,6 +7,7 @@ A Streamlit decision-support app for veterinary case triage at Jadoon Vet Clinic
 - recommended confirmatory diagnostics
 - treatment plan principles for veterinarian review
 - a copyable case summary
+- automatic local case-history storage with searchable reference numbers
 - open-source pretrained semantic matching with `sentence-transformers/all-MiniLM-L6-v2`
 - local no-key Hugging Face LLM assessment with `google/flan-t5-small` by default
 
@@ -35,6 +36,12 @@ The app uses:
 
 Current dataset coverage is strongest for cattle, dogs, and cats. The form includes other species so the workflow is ready, but more vet-reviewed rows should be added before those species are treated as covered.
 
+
+## Case history storage
+
+Each analyzed case is saved with a reference number like `JVC-20260822-0001` in `case_history.jsonl`. The app includes a Streamlit `Case History` page where the veterinarian can search by reference number, species, breed, condition, date, or symptoms, then download a case JSON or full history CSV/JSON.
+
+This is a no-key prototype storage method. On free Streamlit Cloud, local files can be lost after reboot, redeploy, or app migration. For permanent clinic records, use Google Sheets, Supabase, Firebase, Airtable, or GitHub-backed storage with a private secret.
 ## Streamlit Cloud deployment
 
 1. Push this repository to GitHub.
