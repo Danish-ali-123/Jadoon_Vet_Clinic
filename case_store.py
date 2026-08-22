@@ -8,6 +8,12 @@ from pathlib import Path
 from typing import Any
 
 from google_sheets_store import append_record, is_google_sheets_configured, read_records
+from supabase_store import (
+    append_supabase_record,
+    is_supabase_configured,
+    read_supabase_records,
+    supabase_status,
+)
 
 
 _HISTORY_LOCK = threading.Lock()
@@ -54,20 +60,36 @@ def merge_records(primary: list[dict[str, Any]], secondary: list[dict[str, Any]]
 
 def read_cases() -> list[dict[str, Any]]:
     local_records = read_local_cases()
+    records = local_records
+
+    if is_supabase_configured():
+        supabase_records, _status = read_supabase_records()
+        if supabase_records:
+            records = merge_records(supabase_records, records)
+
     if not is_google_sheets_configured():
-        return local_records
+        return records
 
     sheet_records, _status = read_records()
     if not sheet_records:
-        return local_records
-    return merge_records(sheet_records, local_records)
+        return records
+    return merge_records(sheet_records, records)
 
 
 def case_storage_source() -> str:
-    if not is_google_sheets_configured():
-        return f"Local JSONL only: {history_path()}"
-    _records, status = read_records()
-    return status
+    sources = [f"Local JSONL: {history_path()}"]
+    if is_supabase_configured():
+        _records, status = read_supabase_records()
+        sources.append(status if status else supabase_status())
+    else:
+        sources.append(supabase_status())
+
+    if is_google_sheets_configured():
+        _records, status = read_records()
+        sources.append(status)
+    else:
+        sources.append("Google Sheets not configured")
+    return " | ".join(sources)
 
 
 def list_cases(limit: int = 250) -> list[dict[str, Any]]:
@@ -136,9 +158,15 @@ def save_case(case: dict[str, Any], result: dict[str, Any]) -> dict[str, str]:
         with path.open("a", encoding="utf-8") as file:
             file.write(json.dumps(record, ensure_ascii=False) + "\n")
 
-        if is_google_sheets_configured():
-            sheet_status = append_record(record)
-            storage_status = f"Saved locally and Google Sheets: {sheet_status}"
+        storage_parts = [f"Saved locally: {path.name}"]
+        if is_supabase_configured():
+            storage_parts.append(append_supabase_record(record))
         else:
-            storage_status = "Saved to local case history; Google Sheets not configured"
+            storage_parts.append(supabase_status())
+
+        if is_google_sheets_configured():
+            storage_parts.append(f"Google Sheets: {append_record(record)}")
+        else:
+            storage_parts.append("Google Sheets not configured")
+        storage_status = " | ".join(storage_parts)
     return {"case_ref": case_ref, "saved_at": saved_at, "storage_status": storage_status}
