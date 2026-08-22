@@ -6,6 +6,7 @@ from typing import Iterable
 from case_store import save_case
 from data_kb import match_diseases
 from knowledge_base import CONDITION_RULES, DEFAULT_DIAGNOSTICS, DEFAULT_TREATMENT_PRINCIPLES
+from medication_support import build_medication_support
 
 
 GLOBAL_RED_FLAGS = {
@@ -142,6 +143,8 @@ def analyze_case(case: dict) -> dict:
     if red_flags:
         immediate_actions.insert(0, "Stabilize patient and arrange immediate veterinary examination.")
 
+    medication_support = build_medication_support(case, matches)
+
     result = {
         "urgency": determine_urgency(matches, red_flags),
         "model_method": model_method,
@@ -149,12 +152,12 @@ def analyze_case(case: dict) -> dict:
         "matches": matches,
         "diagnostics": unique(diagnostics or DEFAULT_DIAGNOSTICS),
         "treatment_principles": unique(treatment_principles or DEFAULT_TREATMENT_PRINCIPLES),
+        "medication_support": medication_support,
         "immediate_actions": unique(immediate_actions or ["Collect complete history, vitals, and physical exam findings."]),
     }
     try:
         storage_meta = save_case(case, result)
         result.update(storage_meta)
-        result["storage_status"] = "Saved to local case history"
     except Exception as exc:
         result["case_ref"] = "Not saved"
         result["storage_status"] = f"Case history save failed: {exc}"
@@ -204,6 +207,9 @@ Diagnostics:
 
 Treatment principles:
 {chr(10).join("- " + item for item in result["treatment_principles"])}
+
+Medication support:
+{chr(10).join("- " + support.get("condition", "Unknown") + ": " + "; ".join(option.get("class_or_category", "Vet-selected medication") for option in support.get("medication_options", [])) for support in result.get("medication_support", [])) or "- Vet medication protocol not available"}
 """
 
 
