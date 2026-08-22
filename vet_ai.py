@@ -120,15 +120,14 @@ def analyze_case(case: dict) -> dict:
     species = case.get("species", "")
     data_matches, model_method = match_diseases(case)
 
-    matches = []
+    rule_matches = []
     for rule in CONDITION_RULES:
         scored = score_rule(rule, text, species)
         if scored:
-            matches.append(scored)
+            rule_matches.append(scored)
 
-    matches = sorted(matches, key=lambda item: item["score"], reverse=True)[:5]
-    if data_matches:
-        matches = sorted(data_matches + matches, key=lambda item: item["score"], reverse=True)[:5]
+    rule_matches = sorted(rule_matches, key=lambda item: item["score"], reverse=True)[:2]
+    matches = data_matches[:2] if data_matches else rule_matches
     red_flags = detect_red_flags(case, text)
 
     diagnostics = []
@@ -199,39 +198,5 @@ Treatment principles:
 
 
 def generate_ai_assessment(case: dict, result: dict) -> str:
-    if not os.getenv("OPENAI_API_KEY"):
-        return "OPENAI_API_KEY is not configured. The built-in triage engine was used instead."
-
-    try:
-        from openai import OpenAI
-    except ImportError:
-        return "The openai package is not installed. Run `pip install -r requirements.txt`."
-
-    prompt = f"""
-You are assisting a licensed veterinarian. Provide decision support only.
-Do not claim a final diagnosis. Do not provide drug dosages. Do not replace a physical exam.
-
-Case:
-{case}
-
-Rule-based triage result:
-{result}
-
-Return:
-1. Most likely differentials with reasoning.
-2. Emergency concerns.
-3. Recommended diagnostics.
-4. Treatment principles for vet review.
-5. Owner-friendly explanation in simple language.
-"""
-
-    try:
-        client = OpenAI()
-        response = client.responses.create(
-            model=os.getenv("OPENAI_MODEL", "gpt-5-mini"),
-            input=prompt,
-        )
-        return response.output_text
-    except Exception as exc:  # pragma: no cover - depends on external API.
-        return f"AI assessment failed: {exc}"
+    return "This app uses the local no-key prediction engine."
 
