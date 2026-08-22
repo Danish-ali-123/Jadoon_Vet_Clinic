@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from case_store import find_case, history_path, list_cases  # noqa: E402
+from case_store import case_storage_source, find_case, history_path, list_cases  # noqa: E402
 
 
 st.set_page_config(
@@ -201,7 +201,7 @@ def main() -> None:
         unsafe_allow_html=True,
     )
     st.markdown(
-        f"<div class='warning-strip'>Storage file: {history_path()}. On free Streamlit Cloud this local file can be lost after reboot/redeploy; use exported files or connect a real database for permanent clinic records.</div>",
+        f"<div class='warning-strip'>Storage source: {case_storage_source()}. Local fallback file: {history_path()}. On free Streamlit Cloud local files can be lost after reboot/redeploy, so Google Sheets is recommended for persistent records.</div>",
         unsafe_allow_html=True,
     )
 
