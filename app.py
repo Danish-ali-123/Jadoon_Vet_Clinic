@@ -680,19 +680,30 @@ def render_medication_support(result: dict) -> None:
         return
 
     st.markdown('<div class="panel">', unsafe_allow_html=True)
-    panel_heading("shield", "Vet medication support", "Drug classes and medicine types for veterinarian prescription planning. Exact dose, route, interval, and duration must be confirmed by the vet.")
+    panel_heading("shield", "Vet medication recommendations", "Recommendation only. Vet Doc must make the final prescribing decision after exam, diagnostics, weight check, and local drug rules.")
+    st.warning("Recommendation only - the veterinarian must make the final decision. Exact dose, route, interval, duration, and withdrawal period must be confirmed by the vet before use.")
     for item in support[:2]:
         options = []
         for option in item.get("medication_options", []):
-            options.append(
-                f"{option.get('medication_type', 'Medication')}: {option.get('class_or_category', 'Vet-selected class')} | Example: {option.get('example_from_knowledge_base', 'Not specified')} | {option.get('dose_status', 'Vet confirmation required')}"
+            options.extend(
+                [
+                    f"Medicine name: {option.get('medication_name', option.get('example_from_knowledge_base', 'Vet-selected medicine'))}",
+                    f"Antibiotic/class: {option.get('class_or_category', 'Vet-selected class')}",
+                    f"Medicine type: {option.get('medication_type', 'Medication')}",
+                    f"Dosage limit: {option.get('dosage_limit', 'Vet must calculate and confirm')}",
+                    f"Route: {option.get('route', 'Vet to confirm')}",
+                    f"Frequency: {option.get('frequency', 'Vet to confirm')}",
+                    f"Duration: {option.get('duration', 'Vet to confirm')}",
+                    f"Withdrawal period: {option.get('withdrawal_period', 'Vet to confirm if relevant')}",
+                    f"Status: {option.get('dose_status', 'Vet confirmation required')}",
+                ]
             )
         if not options:
             options = ["No medication class found in the knowledge base for this condition. Vet should select based on exam and diagnostics."]
         notes = item.get("safety_notes", []) + [item.get("vet_protocol_needed", "Vet protocol required.")]
         col_a, col_b = st.columns([1, 1])
         with col_a:
-            workflow_card(f"Medication options: {item.get('condition', 'Unknown')}", options)
+            workflow_card(f"Medication recommendation: {item.get('condition', 'Unknown')}", options)
         with col_b:
             workflow_card("Prescription safety checks", notes)
     st.markdown('</div>', unsafe_allow_html=True)
