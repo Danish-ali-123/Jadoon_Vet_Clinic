@@ -6,8 +6,8 @@ from datetime import date
 import streamlit as st
 
 from data_kb import SPECIES_OPTIONS, load_disease_rows
-from llm_assistant import configured_providers, provider_help_text
-from vet_ai import analyze_case, build_case_summary, generate_ai_assessment
+from local_llm import generate_local_llm_assessment
+from vet_ai import analyze_case, build_case_summary
 
 
 st.set_page_config(
@@ -468,7 +468,6 @@ def render_home() -> None:
 
 def render_patient_form() -> None:
     render_topbar()
-    providers = configured_providers()
     screen_title(
         "Case Intake",
         "Capture the clinical picture clearly.",
@@ -523,13 +522,8 @@ def render_patient_form() -> None:
         st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown('<div class="panel">', unsafe_allow_html=True)
-        panel_heading("brain", "Model settings", "Local matching first. External LLM support only appears when keys are configured.")
-        model_col, llm_col = st.columns([1, 1])
-        with model_col:
-            use_pretrained_model = st.toggle("Use open-source semantic model", value=True, help="Uses sentence-transformers/all-MiniLM-L6-v2 when available. Falls back automatically.")
-        with llm_col:
-            use_llm = st.toggle("Use optional external LLM assistant", value=False)
-            llm_provider = st.selectbox("LLM provider", providers, help=provider_help_text())
+        panel_heading("brain", "Prediction model", "No API key required. Uses open-source pretrained matching plus a local Hugging Face LLM assessment.")
+        use_pretrained_model = st.toggle("Use open-source pretrained semantic model", value=True, help="Uses sentence-transformers/all-MiniLM-L6-v2 when available. Falls back automatically to keyword matching if the model cannot load.")
         st.markdown('</div>', unsafe_allow_html=True)
 
         submit_col, back_col, spacer = st.columns([1.2, 1, 2.8])
@@ -545,8 +539,8 @@ def render_patient_form() -> None:
     if submitted:
         case = {
             "submitted": True,
-            "use_ai": use_llm,
-            "llm_provider": llm_provider,
+            "use_ai": True,
+            "llm_provider": "Local no-key assessment",
             "use_pretrained_model": use_pretrained_model,
             "species": species,
             "animal_subtype": animal_subtype,
@@ -645,6 +639,47 @@ def workflow_card(title: str, items: list[str]) -> None:
     )
 
 
+
+def render_local_assessment_plan(result: dict) -> None:
+    matches = result.get("matches", [])[:2]
+    if not matches:
+        workflow_card("Diagnosis and treatment plan", ["No confident local match was found. Add more history, vitals, exam findings, and diagnostics."])
+        return
+
+    primary = matches[0]
+    secondary = matches[1] if len(matches) > 1 else None
+    diagnosis_items = [
+        f"Primary candidate: {primary.get('condition', 'Unknown')} ({primary.get('score', 0)}% match).",
+    ]
+    if secondary:
+        diagnosis_items.append(f"Second candidate to rule out: {secondary.get('condition', 'Unknown')} ({secondary.get('score', 0)}% match).")
+    diagnosis_items.append("Treat this as decision support for the veterinarian, not an automatic final diagnosis.")
+
+    diagnostics = result.get("diagnostics", [])[:6]
+    treatment = result.get("treatment_principles", [])[:6]
+    safety = result.get("immediate_actions", [])[:5]
+
+    st.markdown('<div class="panel">', unsafe_allow_html=True)
+    panel_heading("clinical", "Diagnosis and treatment plan", "Local no-key assessment from top 2 pretrained/knowledge-base matches.")
+    col_a, col_b = st.columns([1, 1])
+    with col_a:
+        workflow_card("Most likely diagnosis candidates", diagnosis_items)
+        workflow_card("Diagnostics to confirm", diagnostics)
+    with col_b:
+        workflow_card("Treatment plan for vet review", treatment)
+        workflow_card("Immediate safety actions", safety)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+def render_llm_assessment(case: dict, result: dict) -> None:
+    st.markdown('<div class="panel">', unsafe_allow_html=True)
+    panel_heading("brain", "Local LLM assistant", "No API key or token. Runs a public Hugging Face model locally when available.")
+    with st.spinner("Generating local LLM assessment..."):
+        assessment, status = generate_local_llm_assessment(case, result)
+    st.caption(status)
+    st.markdown(assessment)
+    st.markdown('</div>', unsafe_allow_html=True)
+
 def render_results() -> None:
     render_topbar()
     case = st.session_state.last_case
@@ -667,6 +702,9 @@ def render_results() -> None:
     else:
         st.success("No immediate red-flag phrase was detected from the entered notes.")
 
+    render_local_assessment_plan(result)
+    render_llm_assessment(case, result)
+
     left, right = st.columns([1.08, 1])
     with left:
         panel_heading("report", "Differential list", "Ranked disease candidates from the knowledge base.")
@@ -681,11 +719,6 @@ def render_results() -> None:
     with st.expander("Case summary for record or referral"):
         st.code(build_case_summary(case, result), language="markdown")
 
-    if case.get("use_ai"):
-        with st.spinner("Generating optional LLM assessment..."):
-            ai_text = generate_ai_assessment(case, result)
-        panel_heading("brain", "Optional LLM assessment", "External provider output for veterinarian review.")
-        st.write(ai_text)
 
     nav1, nav2, nav3 = st.columns([1, 1, 2])
     with nav1:
@@ -717,3 +750,8 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
