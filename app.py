@@ -377,6 +377,7 @@ def render_topbar() -> None:
             <span class="nav-pill">{icon_svg('home', 17)} Home</span>
             <span class="nav-pill">{icon_svg('case', 17)} Case Intake</span>
             <span class="nav-pill">{icon_svg('report', 17)} Assessment</span>
+            <span class="nav-pill">{icon_svg('history', 17)} History</span>
           </div>
         </div>
         """,
@@ -422,7 +423,7 @@ def render_welcome() -> None:
           </div>
           <div class="hero-panel">
             <div class="hero-stat"><strong>{len(rows)}</strong><span>knowledge-base disease records</span></div>
-            <div class="hero-stat"><strong>4</strong><span>focused screens from intake to assessment</span></div>
+            <div class="hero-stat"><strong>5</strong><span>focused screens including searchable history</span></div>
             <div class="hero-stat"><strong>Safe</strong><span>no final diagnosis or dose replacement</span></div>
           </div>
         </div>
@@ -464,6 +465,8 @@ def render_home() -> None:
         if st.session_state.last_result and st.button("View Last Result", use_container_width=True):
             set_page("results")
             st.rerun()
+    with col3:
+        st.page_link("pages/Case_History.py", label="Open Case History")
 
 
 def render_patient_form() -> None:
@@ -695,6 +698,7 @@ def render_results() -> None:
     urgency_color = URGENCY_COLORS.get(result["urgency"], "#344054")
     st.markdown(f"<span class='urgency-chip' style='background:{urgency_color}'>Urgency: {html.escape(result['urgency'])}</span>", unsafe_allow_html=True)
     st.caption(f"Matching method: {result.get('model_method', 'Not provided')}")
+    st.info(f"Case reference: {result.get('case_ref', 'Not saved')} | {result.get('storage_status', 'History status unavailable')}")
     render_metric_grid(result)
 
     if result["red_flags"]:
@@ -729,6 +733,8 @@ def render_results() -> None:
         if st.button("Home", use_container_width=True):
             set_page("home")
             st.rerun()
+    with nav3:
+        st.page_link("pages/Case_History.py", label="Open Case History")
 
 
 def main() -> None:
