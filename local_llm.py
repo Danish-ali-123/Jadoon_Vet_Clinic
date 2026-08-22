@@ -180,7 +180,7 @@ def generate_local_llm_assessment(case: dict, result: dict) -> tuple[str, str]:
     try:
         output = generator(prompt, do_sample=False, truncation=True)
         text = output[0].get("generated_text", "").strip()
-        if not text or len(text) < 40:
+        if not text or not is_usable_generated_text(text):
             return deterministic_assessment(case, result, status), status
         return clean_generated_text(text), status
     except Exception:
